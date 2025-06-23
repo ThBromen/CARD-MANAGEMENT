@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import sha256 from 'crypto-js/sha256';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { cardAPI, cardRequestAPI, apiErrorHandler } from '../services/api';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function VerifyCard() {
   const [scanResult, setScanResult] = useState(null);
@@ -29,32 +32,68 @@ function VerifyCard() {
     }
   }, []);
 
-  const verifyStudent = (scannedText) => {
-    const studentId = scannedText.split("ID:")[1]?.split(" - ")[0];
-    const studentName = scannedText.split(" - ")[1];
+  const verifyStudent = async (scannedText) => {
+    try {
+      // Extract student information from QR code
+      const studentId = scannedText.split("ID:")[1]?.split(" - ")[0];
+      const studentName = scannedText.split(" - ")[1];
 
-    const students = JSON.parse(localStorage.getItem('studentRequests')) || [];
-    const blockchain = JSON.parse(localStorage.getItem('blockchain')) || {};
+      if (!studentId) {
+        setVerificationStatus('invalid-format');
+        return;
+      }
 
-    const student = students.find(s => s.registrationNumber === studentId);
+      // Get all approved cards from API
+      const cardsData = await cardAPI.getAllCards();
+      const cards = cardsData?.cards || cardsData || [];
 
-    if (!student) {
-      setVerificationStatus('not-found');
-      return;
-    }
+      // Find the card by registration number
+      const studentCard = cards.find(card => 
+        card.regNumber === studentId || card.registrationNumber === studentId
+      );
 
-    const dataString = `${student.name}|${student.registrationNumber}|${student.school}|${student.department}|${student.yearOfStudy}`;
-    const localHash = sha256(dataString).toString();
-    const blockchainHash = blockchain[student.registrationNumber];
+      if (!studentCard) {
+        setVerificationStatus('not-found');
+        return;
+      }
 
-    if (localHash === blockchainHash) {
-      setVerificationStatus('valid');
-    } else {
-      setVerificationStatus('tampered');
+      // Verify the hash
+      const dataString = `${studentCard.name}|${studentCard.regNumber || studentCard.registrationNumber}|${studentCard.school}|${studentCard.department}|${studentCard.yearOfStudy}`;
+      const localHash = sha256(dataString).toString();
+      const cardHash = studentCard.hash;
+
+      if (localHash === cardHash) {
+        setVerificationStatus({
+          status: 'valid',
+          student: studentCard,
+          scannedName: studentName
+        });
+      } else {
+        setVerificationStatus('tampered');
+      }
+    } catch (error) {
+      const errorMessage = apiErrorHandler(error);
+      toast.error(`Verification failed: ${errorMessage}`);
+      setVerificationStatus('error');
     }
   };
 
   const getStatusCard = () => {
+    if (verificationStatus?.status === 'valid') {
+      return (
+        <div className="bg-green-50 border border-green-300 text-green-800 rounded-xl p-6 shadow-md flex items-center gap-4">
+          <CheckCircle className="w-8 h-8 text-green-500" />
+          <div>
+            <h3 className="text-lg font-semibold">✅ Card Valid</h3>
+            <p>Student: {verificationStatus.student.name}</p>
+            <p>ID: {verificationStatus.student.regNumber || verificationStatus.student.registrationNumber}</p>
+            <p>School: {verificationStatus.student.school}</p>
+            <p>Department: {verificationStatus.student.department}</p>
+          </div>
+        </div>
+      );
+    }
+
     switch (verificationStatus) {
       case 'valid':
         return (
@@ -86,6 +125,26 @@ function VerifyCard() {
             </div>
           </div>
         );
+      case 'invalid-format':
+        return (
+          <div className="bg-red-50 border border-red-300 text-red-800 rounded-xl p-6 shadow-md flex items-center gap-4">
+            <XCircle className="w-8 h-8 text-red-500" />
+            <div>
+              <h3 className="text-lg font-semibold">Invalid QR Code Format</h3>
+              <p className="text-sm">The QR code format is not recognized.</p>
+            </div>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="bg-red-50 border border-red-300 text-red-800 rounded-xl p-6 shadow-md flex items-center gap-4">
+            <XCircle className="w-8 h-8 text-red-500" />
+            <div>
+              <h3 className="text-lg font-semibold">Verification Error</h3>
+              <p className="text-sm">An error occurred during verification. Please try again.</p>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -105,6 +164,7 @@ function VerifyCard() {
           </div>
         )}
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

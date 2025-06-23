@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { cardRequestAPI, apiErrorHandler } from '../services/api';
 import 'react-toastify/dist/ReactToastify.css';
-
-const API_URL = 'https://student-card-api.onrender.com/api/v1/cardRequest/card';
 
 function CardRequest() {
   const navigate = useNavigate();
@@ -15,7 +14,7 @@ function CardRequest() {
     school: '',
     yearOfStudy: '',
     department: '',
-    photo: '',
+    photo: null, // Store File object
   });
 
   const [photoPreview, setPhotoPreview] = useState('');
@@ -42,9 +41,12 @@ function CardRequest() {
       const file = files[0];
       if (!validateImage(file)) return;
 
+      // Store the actual File object for FormData
+      setFormData(prev => ({ ...prev, photo: file }));
+      
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, photo: reader.result }));
         setPhotoPreview(reader.result);
       };
       reader.readAsDataURL(file);
@@ -61,7 +63,7 @@ function CardRequest() {
       school: '',
       yearOfStudy: '',
       department: '',
-      photo: '',
+      photo: null,
     });
     setPhotoPreview('');
   };
@@ -76,35 +78,51 @@ function CardRequest() {
       'school',
       'yearOfStudy',
       'department',
-      'photo',
     ];
 
+    // Check if required text fields are filled
     const hasEmpty = requiredFields.some(field => !formData[field]);
     if (hasEmpty) {
-      toast.error('Please fill all fields');
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    // Check if photo is uploaded
+    if (!formData.photo) {
+      toast.error('Please upload a photo');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      
+      // Prepare card request data according to API schema
+      const cardRequestData = {
+        Date: new Date().toISOString(),
+        name: formData.name,
+        department: formData.department,
+        school: formData.school,
+        program: formData.department, // Using department as program
+        yearOfStudy: formData.yearOfStudy,
+        regNumber: formData.registrationNumber,
+        photo: formData.photo, // This will be the File object
+        email: formData.email,
+        status: 'pending' // Default status
+      };
 
-      if (response.ok) {
-        toast.success('Request submitted successfully!');
-        resetForm();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Submission failed');
-      }
-    } catch (err) {
-      console.error('Error submitting request:', err);
-      toast.error('Network or server error');
+      console.log('Submitting card request:', cardRequestData);
+      await cardRequestAPI.createCardRequest(cardRequestData);
+      toast.success('Card request submitted successfully!');
+      resetForm();
+      
+      // Redirect to a confirmation page or dashboard
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
+    } catch (error) {
+      console.error('Card request error:', error);
+      const errorMessage = apiErrorHandler(error);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

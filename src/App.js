@@ -9,7 +9,6 @@ import LogInPage from './pages/LogInPage';
 import SignUpPage from './pages/SignUpPage'; 
 import StudentRequestForm from './pages/StudentRequestForm'; 
 
-import 'tailwindcss/tailwind.css'; 
 import './App.css'; 
 import { motion } from 'framer-motion'; 
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { userAPI, apiErrorHandler } from '../services/api';
 import 'react-toastify/dist/ReactToastify.css';
 
 function SignUpPage() {
@@ -69,43 +70,41 @@ function SignUpPage() {
 
         setLoading(true);
         try {
-            const res = await fetch('https://student-card-api.onrender.com/api/v1/user/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    registrationNumber: formData.registrationNumber,
-                    school: formData.school,
-                    yearOfStudy: formData.yearOfStudy,
-                    department: formData.department,
-                    photo: formData.photo,
-                    password: formData.password,
-                }),
+            const userData = {
+                fullNames: formData.name,
+                email: formData.email,
+                phoneNumber: formData.registrationNumber, // Using registrationNumber as phoneNumber
+                location: formData.school,
+                role: 'student', // Default role
+                password: formData.password,
+                Date: new Date().toISOString()
+            };
+
+            const data = await userAPI.register(userData);
+            toast.success('Registration successful!');
+            setFormData({
+                name: '',
+                email: '',
+                registrationNumber: '',
+                school: '',
+                yearOfStudy: '',
+                department: '',
+                photo: '',
+                password: '',
+                confirmPassword: '',
             });
-            const data = await res.json();
-            if (res.ok) {
-                toast.success('Registration successful!');
-                setFormData({
-                    name: '',
-                    email: '',
-                    registrationNumber: '',
-                    school: '',
-                    yearOfStudy: '',
-                    department: '',
-                    photo: '',
-                    password: '',
-                    confirmPassword: '',
-                });
-                setPhotoPreview('');
-                setTimeout(() => navigate('/login'), 1500);
-            } else {
-                toast.error(data.message || 'Registration failed');
-            }
-        } catch (err) {
-            toast.error('Network error');
+            setPhotoPreview('');
+            
+            // Redirect to login page after successful registration
+            setTimeout(() => {
+                navigate('/login');
+            }, 2000);
+        } catch (error) {
+            const errorMessage = apiErrorHandler(error);
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleReset = () => {

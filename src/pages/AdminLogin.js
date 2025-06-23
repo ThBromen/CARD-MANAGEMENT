@@ -1,34 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import { authUtils } from '../services/api';
 import 'react-toastify/dist/ReactToastify.css';
 import AdminDashboard from './Dashboard';
 
 function AdminLogin() {
-  const [password, setPassword] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
+  const navigate = useNavigate();
 
-//   useEffect(() => {
-//     const savedAuth = localStorage.getItem('adminAuthenticated');
-//     if (savedAuth === 'true') {
-//       setAuthenticated(true);
-//     }
-//   }, []);
-
-  const handleLogin = () => {
-    if (password === 'admin123') {
+  useEffect(() => {
+    // Check if user is already authenticated
+    if (authUtils.isAuthenticated()) {
       setAuthenticated(true);
-      localStorage.setItem('adminAuthenticated', 'true');
-      toast.success('Login successful');
-    } else {
-      toast.error('Invalid password');
     }
-  };
+  }, []);
 
   const handleLogout = () => {
+    authUtils.logout();
     setAuthenticated(false);
-    localStorage.removeItem('adminAuthenticated');
-    toast.info('Logged out');
+    toast.success('Logged out successfully');
+    navigate('/login');
   };
+
+  // If not authenticated, redirect to login page
+  if (!authenticated) {
+    navigate('/login');
+    return null;
+  }
 
   if (authenticated) {
     return (
