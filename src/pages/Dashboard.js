@@ -44,14 +44,29 @@ function Dashboard({ onLogout }) {
 
   const fetchStudents = async () => {
     try {
-      const response = await userAPI.getAllUsers();
-      console.log('Students response:', response);
-      const studentsData = response?.data || response?.users || response || [];
-      const studentsWithStatus = studentsData.map((user) => ({
-        ...user,
-        status: user.status || "Active",
+      // Get students from approved cards instead of separate API
+      const response = await cardAPI.getAllCards();
+      console.log('Cards response for students:', response);
+      const cardsData = response?.data || response?.cards || response || [];
+      
+      // Convert approved cards to student format
+      const studentsFromCards = cardsData.map((card) => ({
+        _id: card._id,
+        name: card.name || 'N/A',
+        email: card.email || 'N/A',
+        regNumber: card.regNumber,
+        department: card.department,
+        school: card.school,
+        program: card.program,
+        yearOfStudy: card.yearOfStudy,
+        status: "Active", // All approved cards are active students
+        cardId: card._id,
+        hasCard: true,
+        cardLocation: card.location,
+        blockchainHash: card.hash
       }));
-      setStudents(studentsWithStatus);
+      
+      setStudents(studentsFromCards);
     } catch (error) {
       console.error('Students fetch error:', error);
       const errorMessage = apiErrorHandler(error);
@@ -123,28 +138,72 @@ function Dashboard({ onLogout }) {
     navigate("/login");
   };
 
+  const downloadCard = async (cardUrl, studentName, regNumber) => {
+    try {
+      const response = await fetch(cardUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${studentName}_${regNumber}_card.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Card downloaded successfully!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download card');
+    }
+  };
+
   const renderTabContent = () => {
     if (activeTab === "students") {
       return (
         <div className="grid gap-6">
           {students.length === 0 && (
-            <p className="text-center text-gray-500">No students found.</p>
+            <p className="text-center text-gray-500">No students with approved cards found.</p>
           )}
           {students.map((student, index) => (
             <div
               key={student._id || index}
-              className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between items-center"
+              className="p-4 border rounded shadow-sm flex flex-col md:flex-row justify-between items-start"
             >
-              <div>
-                <p><strong>Name:</strong> {student.name || student.username || 'N/A'}</p>
+              <div className="flex-1">
+                <p><strong>Name:</strong> {student.name || 'N/A'}</p>
+                <p><strong>Registration No:</strong> {student.regNumber || 'N/A'}</p>
                 <p><strong>Email:</strong> {student.email || 'N/A'}</p>
-                <p><strong>ID:</strong> {student._id || 'N/A'}</p>
+                <p><strong>School:</strong> {student.school || 'N/A'}</p>
+                <p><strong>Department:</strong> {student.department || 'N/A'}</p>
+                <p><strong>Program:</strong> {student.program || 'N/A'}</p>
+                <p><strong>Year of Study:</strong> {student.yearOfStudy || 'N/A'}</p>
+                <p><strong>Card ID:</strong> {student.cardId || 'N/A'}</p>
+                {student.blockchainHash && (
+                  <p><strong>Blockchain Hash:</strong> <span className="text-xs font-mono break-all">{student.blockchainHash}</span></p>
+                )}
                 <p>
                   <strong>Status:</strong>{" "}
-                  <span className={`font-bold ${student.status === "Active" ? "text-green-600" : "text-red-600"}`}>
-                    {student.status || 'Active'}
+                  <span className={`font-bold text-green-600`}>
+                    {student.status} (Card Issued)
                   </span>
                 </p>
+              </div>
+              <div className="flex flex-col items-end gap-2 mt-2 md:mt-0">
+                {student.cardLocation && (
+                  <div className="text-center">
+                    <img
+                      src={student.cardLocation}
+                      alt="Student Card"
+                      className="w-32 h-20 rounded object-cover border mb-2"
+                    />
+                    <button
+                      onClick={() => downloadCard(student.cardLocation, student.name, student.regNumber)}
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
+                    >
+                      Download Card
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -254,16 +313,22 @@ function Dashboard({ onLogout }) {
                 )}
               </div>
               {card.location && (
-                <div className="mt-2 md:mt-0 md:ml-4">
+                <div className="mt-2 md:mt-0 md:ml-4 text-center">
                   <p className="text-sm font-medium mb-2">Generated Card:</p>
                   <img
                     src={card.location}
                     alt="Generated Student Card"
-                    className="w-40 h-25 rounded border-2 border-gray-300 object-contain bg-white"
+                    className="w-40 h-25 rounded border-2 border-gray-300 object-contain bg-white mb-2"
                     onError={(e) => {
                       e.target.style.display = 'none';
                     }}
                   />
+                  <button
+                    onClick={() => downloadCard(card.location, card.name, card.regNumber)}
+                    className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition"
+                  >
+                    Download Card
+                  </button>
                 </div>
               )}
             </div>
@@ -291,7 +356,7 @@ function Dashboard({ onLogout }) {
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-blue-100 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-blue-800">Total Students</h3>
+              <h3 className="text-lg font-semibold text-blue-800">Students with Cards</h3>
               <p className="text-2xl font-bold text-blue-900">{students.length}</p>
             </div>
             <div className="bg-green-100 p-4 rounded-lg">
