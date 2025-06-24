@@ -4,7 +4,6 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import CardRequest from './pages/CardRequest';
 import Dashboard from './pages/Dashboard';
 import VerifyCard from './pages/VerifyCard';
-import Profile from './pages/Profile';
 import LogInPage from './pages/LogInPage'; 
 import SignUpPage from './pages/SignUpPage'; 
 import StudentRequestForm from './pages/StudentRequestForm'; 
@@ -87,7 +86,6 @@ function App() {
         <Route path="/verify" element={<VerifyCard />} />
         <Route path="/login" element={<LogInPage />} />
         <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/profile" element={<Profile />} />
 
         {/* ❓ Fallback Route (Optional) */}
         <Route path="*" element={<div className="p-10 text-center">404 - Page Not Found</div>} />
